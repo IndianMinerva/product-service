@@ -1,67 +1,82 @@
 package com.im.productservice.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.im.productservice.BaseTestCase;
 import com.im.productservice.entity.Product;
 import com.im.productservice.service.ProductService;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.boot.web.server.LocalServerPort;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 
-import java.util.List;
-
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@RunWith(SpringRunner.class)
+@SpringBootTest
+@AutoConfigureMockMvc
 class ProductControllerTest implements BaseTestCase {
 
     private static final String URL = "http://localhost:%d/product";
-    @LocalServerPort
-    private int port;
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @Autowired
-    private TestRestTemplate restTemplate;
+    private MockMvc mockMvc;
 
     @Autowired
     private ProductService productService;
 
     @Test
-    void getProduct() {
-        Product product = productService.createProduct(new Product("Name1", 10, 20, 10, "BRAND1"));
-        ResponseEntity<Product> responseEntity = restTemplate.getForEntity(String.format(URL, port) + "/" +product.getId(), Product.class);
-        Assertions.assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
+    void test_getProduct_success() throws Exception {
+        Product createdProduct = productService.createProduct(new Product("Name", 10, 20, 10, "BRAND1"));
+        mockMvc.perform(MockMvcRequestBuilders.get("/product/all")
+                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON))
+                .andExpect(MockMvcResultMatchers.status().isOk());
     }
 
     @Test
-    void getProducts() {
-        productService.createProduct(new Product("Name1", 10, 20, 10, "BRAND1"));
-        productService.createProduct(new Product("Name2", 10, 20, 10, "BRAND1"));
-        productService.createProduct(new Product("Name3", 10, 20, 10, "BRAND1"));
-
-        ResponseEntity<List> responseEntity = restTemplate.getForEntity(String.format(URL, port) + "/all", List.class);
-        Assertions.assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
+    void getProducts() throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders.get("/product/all")
+                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON))
+                .andExpect(MockMvcResultMatchers.status().isOk());
     }
 
     @Test
-    void test_createProduct() {
-        ResponseEntity<Product> responseEntity = restTemplate.postForEntity(String.format(URL, port),
-                new Product("Name", 10, 20, 10, "BRAND1"), Product.class);
-
-        Assertions.assertEquals(HttpStatus.CREATED, responseEntity.getStatusCode());
+    void test_createProduct() throws Exception {
+        Product createdProduct = productService.createProduct(new Product("Name", 10, 20, 10, "BRAND1"));
+        mockMvc.perform(MockMvcRequestBuilders.post("/product")
+                .content(OBJECT_MAPPER.writeValueAsString(createdProduct))
+                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON))
+                .andExpect(MockMvcResultMatchers.status().isCreated());
     }
 
     @Test
-    void test_updateProduct() {
+    void test_updateProduct_success() throws Exception {
+        Product createdProduct = productService.createProduct(new Product("Name", 10, 20, 10, "BRAND1"));
+        mockMvc.perform(MockMvcRequestBuilders.put("/product/" + createdProduct.getId())
+                .content(OBJECT_MAPPER.writeValueAsString(createdProduct))
+                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON))
+                .andExpect(MockMvcResultMatchers.status().isAccepted());
+    }
+
+    @Test
+    void test_updateProduct_failure() throws Exception {
         Product createdProduct = productService.createProduct(new Product("Name", 10, 20, 10, "BRAND1"));
         createdProduct.setBrand("BRAND2");
-        restTemplate.put(String.format(URL, port) + "/" + createdProduct.getId(), createdProduct);
+        mockMvc.perform(MockMvcRequestBuilders.put("/product/1234")
+                .content(OBJECT_MAPPER.writeValueAsString(createdProduct))
+                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON))
+                .andExpect(MockMvcResultMatchers.status().isBadRequest());
     }
 
     @Test
-    void deleteProduct() {
+    void deleteProduct() throws Exception {
         Product createdProduct = productService.createProduct(new Product("Name", 10, 20, 10, "BRAND1"));
-        restTemplate.delete(String.format(URL, port) + "/" + createdProduct.getId());
+        mockMvc.perform(MockMvcRequestBuilders.delete("/product/" + createdProduct.getId()))
+                .andExpect(MockMvcResultMatchers.status().isOk());
     }
 }
